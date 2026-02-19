@@ -1,0 +1,12 @@
+{
+  "variants": {
+    "axis=y,flipped=false": { "model": "defendablebases:block/fortress_center" },
+    "axis=y,flipped=true":  { "model": "defendablebases:block/fortress_center", "x": 180 },
+
+    "axis=x,flipped=false": { "model": "defendablebases:block/fortress_center", "z": 90 },
+    "axis=x,flipped=true":  { "model": "defendablebases:block/fortress_center", "z": 90, "x": 180 },
+
+    "axis=z,flipped=false": { "model": "defendablebases:block/fortress_center", "x": 90 },
+    "axis=z,flipped=true":  { "model": "defendablebases:block/fortress_center", "x": 270 }
+  }
+}
