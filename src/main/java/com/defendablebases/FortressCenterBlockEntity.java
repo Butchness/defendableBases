@@ -192,6 +192,11 @@ public class FortressCenterBlockEntity extends BlockEntity {
         clientSetNetStats(protectedNonAir, wood, iron, diamond);
     }
 
+    public void clientSetCenterEnergyFromPacket(float energy) {
+        if (level == null || !level.isClientSide) return;
+        clientCenterEnergy = Math.max(0f, Math.min((float) CENTER_MAX_ENERGY, energy));
+    }
+
     private void clientSetNetStats(int protectedNonAir, int wood, int iron, int diamond) {
         this.clientProtectedNonAirCount = Math.max(0, protectedNonAir);
         this.clientNetWoodCount = Math.max(0, wood);

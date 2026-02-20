@@ -35,7 +35,6 @@ public class ProtectedCountRequestPacket {
             Level level = sender.level();
             BlockEntity raw = level.getBlockEntity(msg.pos);
 
-            // Must be one of our fortresses; for now you’re calling from the center menu
             if (!(raw instanceof FortressCenterBlockEntity)) return;
 
             FortressCenterBlockEntity center = TerritoryRules.getFortressCoveringForBreak(level, msg.pos);
@@ -45,16 +44,15 @@ public class ProtectedCountRequestPacket {
 
             TerritoryRules.NetStats stats = TerritoryRules.computeNetStats(level, center.getBlockPos());
 
-            // Store on server + update tag sync (nice to keep world consistent)
             center.setNetStatsServer(stats.protectedNonAir, stats.woodCount, stats.ironCount, stats.diamondCount);
 
-            // ALSO send explicit packet so the UI updates immediately even if tag sync is delayed
             ProtectedCountSyncPacket pkt = new ProtectedCountSyncPacket(
                     center.getBlockPos(),
                     stats.protectedNonAir,
                     stats.woodCount,
                     stats.ironCount,
-                    stats.diamondCount
+                    stats.diamondCount,
+                    center.getClientCenterEnergy()
             );
 
             ModNetworking.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sender), pkt);

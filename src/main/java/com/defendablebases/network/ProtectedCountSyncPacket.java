@@ -16,13 +16,15 @@ public class ProtectedCountSyncPacket {
     public final int woodCount;
     public final int ironCount;
     public final int diamondCount;
+    public final int centerEnergy;
 
-    public ProtectedCountSyncPacket(BlockPos centerPos, int protectedNonAirCount, int woodCount, int ironCount, int diamondCount) {
+    public ProtectedCountSyncPacket(BlockPos centerPos, int protectedNonAirCount, int woodCount, int ironCount, int diamondCount, int centerEnergy) {
         this.centerPos = centerPos;
         this.protectedNonAirCount = protectedNonAirCount;
         this.woodCount = woodCount;
         this.ironCount = ironCount;
         this.diamondCount = diamondCount;
+        this.centerEnergy = centerEnergy;
     }
 
     public static void encode(ProtectedCountSyncPacket msg, FriendlyByteBuf buf) {
@@ -31,6 +33,7 @@ public class ProtectedCountSyncPacket {
         buf.writeInt(msg.woodCount);
         buf.writeInt(msg.ironCount);
         buf.writeInt(msg.diamondCount);
+        buf.writeInt(msg.centerEnergy);
     }
 
     public static ProtectedCountSyncPacket decode(FriendlyByteBuf buf) {
@@ -39,7 +42,8 @@ public class ProtectedCountSyncPacket {
         int wood = buf.readInt();
         int iron = buf.readInt();
         int diamond = buf.readInt();
-        return new ProtectedCountSyncPacket(pos, protectedCount, wood, iron, diamond);
+        int centerEnergy = buf.readInt();
+        return new ProtectedCountSyncPacket(pos, protectedCount, wood, iron, diamond, centerEnergy);
     }
 
     public static void handle(ProtectedCountSyncPacket msg, Supplier<NetworkEvent.Context> ctx) {
@@ -49,9 +53,8 @@ public class ProtectedCountSyncPacket {
 
             BlockEntity be = mc.level.getBlockEntity(msg.centerPos);
             if (be instanceof FortressCenterBlockEntity fc) {
-                // You currently have private clientSetNetStats(...).
-                // Add the public wrapper method shown below, then call it here:
                 fc.clientSetNetStatsFromPacket(msg.protectedNonAirCount, msg.woodCount, msg.ironCount, msg.diamondCount);
+                fc.clientSetCenterEnergyFromPacket(msg.centerEnergy);
             }
 
             if (mc.screen instanceof FortressCenterScreen) {

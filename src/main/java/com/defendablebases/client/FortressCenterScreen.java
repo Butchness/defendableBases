@@ -7,6 +7,7 @@ import com.defendablebases.client.screen.PrivilegeScreen;
 import com.defendablebases.network.ModNetworking;
 import com.defendablebases.network.ProtectedCountRequestPacket;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -38,6 +39,9 @@ public class FortressCenterScreen extends AbstractContainerScreen<FortressCenter
     private static final int BAR_FG = 0xFFC6C6C6;
     private static final int BAR_BORDER = 0xFF8B8B8B;
 
+    private static final int REQUEST_PERIOD_TICKS = 20;
+    private long lastRequestGameTime = Long.MIN_VALUE;
+
     public FortressCenterScreen(FortressCenterMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
 
@@ -53,6 +57,8 @@ public class FortressCenterScreen extends AbstractContainerScreen<FortressCenter
     @Override
     protected void init() {
         super.init();
+
+        lastRequestGameTime = Long.MIN_VALUE;
 
         int btnX = this.leftPos + 100;
 
@@ -77,7 +83,24 @@ public class FortressCenterScreen extends AbstractContainerScreen<FortressCenter
         FortressCenterBlockEntity be = this.menu.getBlockEntity();
         if (be != null) {
             ModNetworking.sendToServer(new com.defendablebases.network.PrivilegeListRequestPacket(be.getBlockPos()));
-            ModNetworking.sendToServer(new ProtectedCountRequestPacket(be.getBlockPos()));
+            requestCenterStatsOnce();
+        }
+    }
+
+    private void requestCenterStatsOnce() {
+        FortressCenterBlockEntity be = this.menu.getBlockEntity();
+        if (be == null) return;
+        ModNetworking.sendToServer(new ProtectedCountRequestPacket(be.getBlockPos()));
+    }
+
+    private void maybePollServerForCenterStats() {
+        Minecraft mc = this.minecraft;
+        if (mc == null || mc.level == null) return;
+
+        long now = mc.level.getGameTime();
+        if (now - lastRequestGameTime >= REQUEST_PERIOD_TICKS) {
+            lastRequestGameTime = now;
+            requestCenterStatsOnce();
         }
     }
 
@@ -107,6 +130,8 @@ public class FortressCenterScreen extends AbstractContainerScreen<FortressCenter
 
     @Override
     protected void renderBg(GuiGraphics gfx, float partialTick, int mouseX, int mouseY) {
+        maybePollServerForCenterStats();
+
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
         gfx.blit(TEX, this.leftPos, this.topPos, 0, 0, this.imageWidth, this.imageHeight,
