@@ -2,6 +2,8 @@ package com.defendablebases;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -89,6 +91,23 @@ public class FortressCenterBlock extends BaseEntityBlock {
                 ModBlockEntities.FORTRESS_CENTER.get(),
                 FortressCenterBlockEntity::serverTick
         );
+    }
+
+    @Override
+    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
+        super.animateTick(state, level, pos, random);
+
+        if (random.nextFloat() >= 0.35f) return;
+
+        double x = pos.getX() + 0.5D + (random.nextDouble() - 0.5D) * 0.6D;
+        double y = pos.getY() + 0.5D + (random.nextDouble() - 0.5D) * 0.8D;
+        double z = pos.getZ() + 0.5D + (random.nextDouble() - 0.5D) * 0.6D;
+
+        double vx = (random.nextDouble() - 0.5D) * 0.02D;
+        double vy = (random.nextDouble() - 0.5D) * 0.02D;
+        double vz = (random.nextDouble() - 0.5D) * 0.02D;
+
+        level.addParticle(ParticleTypes.PORTAL, x, y, z, vx, vy, vz);
     }
 
     @Override

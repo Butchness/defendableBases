@@ -34,7 +34,12 @@ public final class ModBlocks {
     // Center remains FortressCenterBlock (opens UI)
     public static final RegistryObject<Block> FORTRESS_CENTER =
             BLOCKS.register("fortress_center",
-                    () -> new FortressCenterBlock(BlockBehaviour.Properties.of().mapColor(MapColor.STONE).strength(6.0f)));
+                    () -> new FortressCenterBlock(
+                            BlockBehaviour.Properties.of()
+                                    .mapColor(MapColor.COLOR_PURPLE)
+                                    .strength(6.0f)
+                                    .lightLevel(state -> 7)
+                    ));
 
     // BlockItems
     public static final RegistryObject<Item> FORTRESS_WOOD_ITEM =
