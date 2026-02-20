@@ -290,6 +290,20 @@ public final class ForgeEvents {
             return;
         }
 
+        if (placedState.getBlock() == ModBlocks.FORTRESS_CENTER.get()) {
+            FortressCenterBlockEntity territoryCover = TerritoryRules.getFortressCoveringForUse(level, placedPos);
+            FortressCenterBlockEntity breakCover = TerritoryRules.getFortressCoveringForBreak(level, placedPos);
+
+            FortressCenterBlockEntity cover = (territoryCover != null) ? territoryCover : breakCover;
+            if (cover != null && !cover.getBlockPos().equals(placedPos)) {
+                event.setCanceled(true);
+                sp.displayClientMessage(Component.literal("Cannot place Fortress Center inside another net."), true);
+                forceResyncInventory(sp);
+                resyncBlock(sp, level, placedPos);
+                return;
+            }
+        }
+
         if (isFortressBlock(placedState.getBlock())) {
             FortressRegistry.addFortress(level.dimension(), placedPos);
 
