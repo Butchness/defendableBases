@@ -7,6 +7,8 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
@@ -306,7 +308,12 @@ public class FortressCenterBlockEntity extends BlockEntity {
 
         setChanged();
         syncToClients();
-        return centerEnergy > 0f;
+
+        boolean hasEnergy = centerEnergy > 0f;
+        if (!hasEnergy) {
+            playOutOfEnergySoundServer();
+        }
+        return hasEnergy;
     }
 
     private int consumeCenterRepairPoints(int neededPoints) {
@@ -587,6 +594,11 @@ public class FortressCenterBlockEntity extends BlockEntity {
         return changed;
     }
 
+    private void playOutOfEnergySoundServer() {
+        if (level == null || level.isClientSide) return;
+        level.playSound(null, worldPosition, SoundEvents.LAVA_EXTINGUISH, SoundSource.BLOCKS, 0.8f, 1.0f);
+    }
+
     private void syncToClients() {
         if (level == null || level.isClientSide) return;
         BlockState s = getBlockState();
@@ -749,6 +761,7 @@ public class FortressCenterBlockEntity extends BlockEntity {
 
         clientSetNetStats(protectedCount, wood, iron, diamond);
         clientCenterEnergy = Math.max(0f, Math.min((float) CENTER_MAX_ENERGY, energy));
+        centerEnergy = clientCenterEnergy;
     }
 
     public void openMenu(Player player) {

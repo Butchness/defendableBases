@@ -7,6 +7,8 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
@@ -112,6 +114,11 @@ public class FortressBlockEntity extends BlockEntity {
         return FortressTier.WOOD;
     }
 
+    private void playOutOfEnergySoundServer() {
+        if (level == null || level.isClientSide) return;
+        level.playSound(null, worldPosition, SoundEvents.LAVA_EXTINGUISH, SoundSource.BLOCKS, 0.8f, 1.0f);
+    }
+
     private void setProtectedNonAirCountServer(int count) {
         if (level == null || level.isClientSide) return;
         this.protectedNonAirCount = Math.max(0, count);
@@ -154,6 +161,7 @@ public class FortressBlockEntity extends BlockEntity {
             health = 0f;
             setChanged();
             syncToClients();
+            playOutOfEnergySoundServer();
             return false;
         }
 
