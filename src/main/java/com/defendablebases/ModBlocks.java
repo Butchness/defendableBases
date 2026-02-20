@@ -1,6 +1,5 @@
 package com.defendablebases;
 
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -35,20 +34,25 @@ public final class ModBlocks {
     // Center remains FortressCenterBlock (opens UI)
     public static final RegistryObject<Block> FORTRESS_CENTER =
             BLOCKS.register("fortress_center",
-                    () -> new FortressCenterBlock(BlockBehaviour.Properties.of().mapColor(MapColor.STONE).strength(6.0f)));
+                    () -> new FortressCenterBlock(
+                            BlockBehaviour.Properties.of()
+                                    .mapColor(MapColor.COLOR_PURPLE)
+                                    .strength(6.0f)
+                                    .lightLevel(state -> 7)
+                    ));
 
     // BlockItems
     public static final RegistryObject<Item> FORTRESS_WOOD_ITEM =
-            ITEMS.register("fortress_wood", () -> new BlockItem(FORTRESS_WOOD.get(), new Item.Properties()));
+            ITEMS.register("fortress_wood", () -> new FortressTooltipBlockItem(FORTRESS_WOOD.get(), new Item.Properties()));
 
     public static final RegistryObject<Item> FORTRESS_IRON_ITEM =
-            ITEMS.register("fortress_iron", () -> new BlockItem(FORTRESS_IRON.get(), new Item.Properties()));
+            ITEMS.register("fortress_iron", () -> new FortressTooltipBlockItem(FORTRESS_IRON.get(), new Item.Properties()));
 
     public static final RegistryObject<Item> FORTRESS_DIAMOND_ITEM =
-            ITEMS.register("fortress_diamond", () -> new BlockItem(FORTRESS_DIAMOND.get(), new Item.Properties()));
+            ITEMS.register("fortress_diamond", () -> new FortressTooltipBlockItem(FORTRESS_DIAMOND.get(), new Item.Properties()));
 
     public static final RegistryObject<Item> FORTRESS_CENTER_ITEM =
-            ITEMS.register("fortress_center", () -> new BlockItem(FORTRESS_CENTER.get(), new Item.Properties()));
+            ITEMS.register("fortress_center", () -> new FortressTooltipBlockItem(FORTRESS_CENTER.get(), new Item.Properties()));
 
     public static void register(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);

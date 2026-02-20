@@ -7,6 +7,7 @@ import com.defendablebases.client.screen.PrivilegeScreen;
 import com.defendablebases.network.ModNetworking;
 import com.defendablebases.network.ProtectedCountRequestPacket;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -25,6 +26,22 @@ public class FortressCenterScreen extends AbstractContainerScreen<FortressCenter
     private Button privilegeButton;
     private Button refreshButton;
 
+    private static final int ENERGY_TEXT_X = 98;
+    private static final int ENERGY_TEXT_Y = 6;
+    private static final float ENERGY_TEXT_SCALE = 0.65f;
+
+    private static final int ENERGY_BAR_X = 98;
+    private static final int ENERGY_BAR_Y = 12;
+    private static final int ENERGY_BAR_W = 64;
+    private static final int ENERGY_BAR_H = 4;
+
+    private static final int BAR_BG = 0xFF2A2A2A;
+    private static final int BAR_FG = 0xFFC6C6C6;
+    private static final int BAR_BORDER = 0xFF8B8B8B;
+
+    private static final int REQUEST_PERIOD_TICKS = 20;
+    private long lastRequestGameTime = Long.MIN_VALUE;
+
     public FortressCenterScreen(FortressCenterMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
 
@@ -40,6 +57,8 @@ public class FortressCenterScreen extends AbstractContainerScreen<FortressCenter
     @Override
     protected void init() {
         super.init();
+
+        lastRequestGameTime = Long.MIN_VALUE;
 
         int btnX = this.leftPos + 100;
 
@@ -64,7 +83,24 @@ public class FortressCenterScreen extends AbstractContainerScreen<FortressCenter
         FortressCenterBlockEntity be = this.menu.getBlockEntity();
         if (be != null) {
             ModNetworking.sendToServer(new com.defendablebases.network.PrivilegeListRequestPacket(be.getBlockPos()));
-            ModNetworking.sendToServer(new ProtectedCountRequestPacket(be.getBlockPos()));
+            requestCenterStatsOnce();
+        }
+    }
+
+    private void requestCenterStatsOnce() {
+        FortressCenterBlockEntity be = this.menu.getBlockEntity();
+        if (be == null) return;
+        ModNetworking.sendToServer(new ProtectedCountRequestPacket(be.getBlockPos()));
+    }
+
+    private void maybePollServerForCenterStats() {
+        Minecraft mc = this.minecraft;
+        if (mc == null || mc.level == null) return;
+
+        long now = mc.level.getGameTime();
+        if (now - lastRequestGameTime >= REQUEST_PERIOD_TICKS) {
+            lastRequestGameTime = now;
+            requestCenterStatsOnce();
         }
     }
 
@@ -78,8 +114,24 @@ public class FortressCenterScreen extends AbstractContainerScreen<FortressCenter
         gfx.pose().popPose();
     }
 
+
+    private void drawEnergyBar(GuiGraphics gfx, int x, int y, int current, int max) {
+        if (max <= 0) max = 1;
+        current = Math.max(0, Math.min(current, max));
+
+        gfx.fill(x - 1, y - 1, x + ENERGY_BAR_W + 1, y + ENERGY_BAR_H + 1, BAR_BORDER);
+        gfx.fill(x, y, x + ENERGY_BAR_W, y + ENERGY_BAR_H, BAR_BG);
+
+        int filled = (int) Math.floor((current / (double) max) * ENERGY_BAR_W);
+        if (filled > 0) {
+            gfx.fill(x, y, x + filled, y + ENERGY_BAR_H, BAR_FG);
+        }
+    }
+
     @Override
     protected void renderBg(GuiGraphics gfx, float partialTick, int mouseX, int mouseY) {
+        maybePollServerForCenterStats();
+
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
         gfx.blit(TEX, this.leftPos, this.topPos, 0, 0, this.imageWidth, this.imageHeight,
@@ -108,10 +160,23 @@ public class FortressCenterScreen extends AbstractContainerScreen<FortressCenter
             int count = be.getPrivilegedCopy().size();
             int max = be.getClientMaxPrivileged();
 
+            int energy = be.getClientCenterEnergy();
+            int maxEnergy = be.getCenterMaxEnergy();
+
+            drawScaledString(gfx,
+                    Component.literal("Energy: " + energy + "/" + maxEnergy),
+                    this.leftPos + ENERGY_TEXT_X, this.topPos + ENERGY_TEXT_Y, 0x8B8B8B, ENERGY_TEXT_SCALE);
+
+            drawEnergyBar(gfx,
+                    this.leftPos + ENERGY_BAR_X,
+                    this.topPos + ENERGY_BAR_Y,
+                    energy,
+                    maxEnergy);
+
             // Scaled "Privileged: #/#"
             drawScaledString(gfx,
                     Component.literal("Privileged: " + count + "/" + max),
-                    this.leftPos + 98, this.topPos + 14, 0x404040, 0.85f);
+                    this.leftPos + 98, this.topPos + 19, 0x404040, 0.85f);
 
             // Blocks count (net union)
             int blocks = be.getClientProtectedNonAirCount();

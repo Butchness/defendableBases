@@ -7,6 +7,8 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
@@ -24,6 +26,7 @@ import java.util.Set;
 import java.util.UUID;
 
 public class FortressCenterBlockEntity extends BlockEntity {
+    public static final int CENTER_MAX_ENERGY = 16;
     private static final String TAG_ITEMS   = "Items";
     private static final String TAG_PRIV    = "Privileged";
     private static final String TAG_CLAIMED = "Claimed";
@@ -37,6 +40,8 @@ public class FortressCenterBlockEntity extends BlockEntity {
 
     // decay scheduling
     private static final String TAG_NEXT_DECAY_TIME = "NextDecayGameTime";
+    private static final String TAG_PLACED_TIME = "PlacedGameTime";
+    private static final String TAG_ENERGY = "CenterEnergy";
 
     private final SimpleContainer inventory = new SimpleContainer(27) {
         @Override
@@ -60,6 +65,8 @@ public class FortressCenterBlockEntity extends BlockEntity {
 
     // decay scheduling
     private long nextDecayGameTime = 0L;
+    private long placedGameTime = 0L;
+    private float centerEnergy = CENTER_MAX_ENERGY;
 
     private final Set<UUID> clientPrivileged = new HashSet<>();
     private boolean clientClaimed = false;
@@ -70,6 +77,7 @@ public class FortressCenterBlockEntity extends BlockEntity {
     private int clientNetWoodCount = 0;
     private int clientNetIronCount = 0;
     private int clientNetDiamondCount = 0;
+    private float clientCenterEnergy = CENTER_MAX_ENERGY;
 
     public FortressCenterBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.FORTRESS_CENTER.get(), pos, state);
@@ -84,6 +92,13 @@ public class FortressCenterBlockEntity extends BlockEntity {
         super.onLoad();
         if (level != null && !level.isClientSide) {
             FortressRegistry.addFortress(level.dimension(), worldPosition);
+
+            if (placedGameTime <= 0L) {
+                placedGameTime = level.getGameTime();
+                setChanged();
+            }
+
+            TerritoryRules.pruneNewestCenterIfNetHasMultipleCenters(level, worldPosition);
         }
     }
 
@@ -140,6 +155,19 @@ public class FortressCenterBlockEntity extends BlockEntity {
         return netDiamondCount;
     }
 
+    public long getPlacedGameTimeForOrdering() {
+        return Math.max(0L, placedGameTime);
+    }
+
+    public int getCenterMaxEnergy() {
+        return CENTER_MAX_ENERGY;
+    }
+
+    public int getClientCenterEnergy() {
+        float v = (level != null && level.isClientSide) ? clientCenterEnergy : centerEnergy;
+        return Math.max(0, Math.min(getCenterMaxEnergy(), (int) Math.floor(v)));
+    }
+
     public void setProtectedNonAirCountServer(int count) {
         if (level == null || level.isClientSide) return;
         this.protectedNonAirCount = Math.max(0, count);
@@ -162,6 +190,11 @@ public class FortressCenterBlockEntity extends BlockEntity {
     public void clientSetNetStatsFromPacket(int protectedNonAir, int wood, int iron, int diamond) {
         if (level == null || !level.isClientSide) return;
         clientSetNetStats(protectedNonAir, wood, iron, diamond);
+    }
+
+    public void clientSetCenterEnergyFromPacket(float energy) {
+        if (level == null || !level.isClientSide) return;
+        clientCenterEnergy = Math.max(0f, Math.min((float) CENTER_MAX_ENERGY, energy));
     }
 
     private void clientSetNetStats(int protectedNonAir, int wood, int iron, int diamond) {
@@ -253,7 +286,41 @@ public class FortressCenterBlockEntity extends BlockEntity {
     // DECAY MECHANICS (server)
     // ============================================================
 
-    /** Consume repair points from center inventory. Returns how many points are still needed (0 if fully paid). */
+    /** Apply protection damage and always attempt to refill center energy toward full from inventory resources. */
+    public boolean applyCenterProtectionDamage(float damage) {
+        if (level == null || level.isClientSide) return false;
+        if (damage <= 0f) return true;
+
+        float max = (float) getCenterMaxEnergy();
+
+        centerEnergy -= damage;
+
+        // Only trigger resource-based repair when energy is depleted.
+        // Repair attempts to refill from zero to full, then applies any overkill debt.
+        if (centerEnergy <= 0f) {
+            float debt = -centerEnergy;
+            centerEnergy = 0f;
+
+            int needed = (int) Math.ceil(max);
+            int remaining = consumeCenterRepairPoints(needed);
+            int paid = Math.max(0, needed - remaining);
+
+            centerEnergy += paid;
+            centerEnergy -= debt;
+        }
+
+        centerEnergy = Math.max(0f, Math.min(max, centerEnergy));
+
+        setChanged();
+        syncToClients();
+
+        boolean hasEnergy = centerEnergy > 0f;
+        if (!hasEnergy) {
+            playOutOfEnergySoundServer();
+        }
+        return hasEnergy;
+    }
+
     private int consumeCenterRepairPoints(int neededPoints) {
         if (neededPoints <= 0) return 0;
 
@@ -532,6 +599,11 @@ public class FortressCenterBlockEntity extends BlockEntity {
         return changed;
     }
 
+    private void playOutOfEnergySoundServer() {
+        if (level == null || level.isClientSide) return;
+        level.playSound(null, worldPosition, SoundEvents.LAVA_EXTINGUISH, SoundSource.BLOCKS, 0.8f, 1.0f);
+    }
+
     private void syncToClients() {
         if (level == null || level.isClientSide) return;
         BlockState s = getBlockState();
@@ -597,6 +669,8 @@ public class FortressCenterBlockEntity extends BlockEntity {
         tag.putInt(TAG_NET_DIAMOND, netDiamondCount);
 
         tag.putLong(TAG_NEXT_DECAY_TIME, nextDecayGameTime);
+        tag.putLong(TAG_PLACED_TIME, placedGameTime);
+        tag.putFloat(TAG_ENERGY, centerEnergy);
     }
 
     @Override
@@ -622,6 +696,9 @@ public class FortressCenterBlockEntity extends BlockEntity {
         netDiamondCount = tag.contains(TAG_NET_DIAMOND, Tag.TAG_INT) ? tag.getInt(TAG_NET_DIAMOND) : 0;
 
         nextDecayGameTime = tag.contains(TAG_NEXT_DECAY_TIME, Tag.TAG_LONG) ? tag.getLong(TAG_NEXT_DECAY_TIME) : 0L;
+        placedGameTime = tag.contains(TAG_PLACED_TIME, Tag.TAG_LONG) ? tag.getLong(TAG_PLACED_TIME) : 0L;
+        centerEnergy = tag.contains(TAG_ENERGY, Tag.TAG_FLOAT) ? tag.getFloat(TAG_ENERGY) : (float) CENTER_MAX_ENERGY;
+        centerEnergy = Math.max(0f, Math.min((float) CENTER_MAX_ENERGY, centerEnergy));
     }
 
     // ----------------------------
@@ -647,6 +724,7 @@ public class FortressCenterBlockEntity extends BlockEntity {
         tag.putInt(TAG_NET_WOOD, netWoodCount);
         tag.putInt(TAG_NET_IRON, netIronCount);
         tag.putInt(TAG_NET_DIAMOND, netDiamondCount);
+        tag.putFloat(TAG_ENERGY, centerEnergy);
 
         ListTag privList = new ListTag();
         for (UUID id : privileged) {
@@ -681,11 +759,14 @@ public class FortressCenterBlockEntity extends BlockEntity {
         clientSetPrivileged(set, c, max, radius);
 
         int protectedCount = tag.contains(TAG_PROTECTED_NON_AIR, Tag.TAG_INT) ? tag.getInt(TAG_PROTECTED_NON_AIR) : 0;
+        float energy = tag.contains(TAG_ENERGY, Tag.TAG_FLOAT) ? tag.getFloat(TAG_ENERGY) : (float) CENTER_MAX_ENERGY;
         int wood = tag.contains(TAG_NET_WOOD, Tag.TAG_INT) ? tag.getInt(TAG_NET_WOOD) : 0;
         int iron = tag.contains(TAG_NET_IRON, Tag.TAG_INT) ? tag.getInt(TAG_NET_IRON) : 0;
         int diamond = tag.contains(TAG_NET_DIAMOND, Tag.TAG_INT) ? tag.getInt(TAG_NET_DIAMOND) : 0;
 
         clientSetNetStats(protectedCount, wood, iron, diamond);
+        clientCenterEnergy = Math.max(0f, Math.min((float) CENTER_MAX_ENERGY, energy));
+        centerEnergy = clientCenterEnergy;
     }
 
     public void openMenu(Player player) {

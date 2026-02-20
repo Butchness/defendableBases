@@ -288,6 +288,52 @@ public final class TerritoryRules {
         return new NetStats(uniquePositions.size(), wood, iron, diamond);
     }
 
+
+    public static void pruneNewestCenterIfNetHasMultipleCenters(Level level, BlockPos anyCenterPos) {
+        if (level == null || level.isClientSide || anyCenterPos == null) return;
+        if (!isChunkLoaded(level, anyCenterPos)) return;
+
+        ResourceKey<Level> dim = level.dimension();
+        Set<BlockPos> net = floodFillNetByProtectionOverlap(level, dim, anyCenterPos);
+        if (net.isEmpty()) return;
+
+        BlockPos newestCenterPos = null;
+        long newestPlacedTime = Long.MIN_VALUE;
+
+        for (BlockPos pos : net) {
+            if (!isChunkLoaded(level, pos)) continue;
+
+            BlockEntity be = level.getBlockEntity(pos);
+            if (!(be instanceof FortressCenterBlockEntity center)) continue;
+            if (!isCenterBlock(center)) continue;
+
+            long placed = center.getPlacedGameTimeForOrdering();
+            if (placed > newestPlacedTime) {
+                newestPlacedTime = placed;
+                newestCenterPos = pos.immutable();
+            }
+        }
+
+        if (newestCenterPos == null) return;
+
+        int centerCount = 0;
+        for (BlockPos pos : net) {
+            if (!isChunkLoaded(level, pos)) continue;
+
+            BlockEntity be = level.getBlockEntity(pos);
+            if (!(be instanceof FortressCenterBlockEntity center)) continue;
+            if (!isCenterBlock(center)) continue;
+
+            centerCount++;
+            if (centerCount > 1) break;
+        }
+
+        if (centerCount <= 1) return;
+
+        level.destroyBlock(newestCenterPos, false);
+        FortressRegistry.removeFortress(dim, newestCenterPos);
+    }
+
     // ============================
     // Net linking + coverage
     // ============================
