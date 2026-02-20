@@ -279,34 +279,29 @@ public class FortressCenterBlockEntity extends BlockEntity {
     // DECAY MECHANICS (server)
     // ============================================================
 
-    /** Consume repair points from center inventory. Returns how many points are still needed (0 if fully paid). */
+    /** Apply protection damage and always attempt to refill center energy toward full from inventory resources. */
     public boolean applyCenterProtectionDamage(float damage) {
         if (level == null || level.isClientSide) return false;
         if (damage <= 0f) return true;
 
         float max = (float) getCenterMaxEnergy();
+
         centerEnergy -= damage;
 
-        if (centerEnergy > 0f) {
-            setChanged();
-            syncToClients();
-            return true;
+        float missing = max - centerEnergy;
+        if (missing > 0f) {
+            int needed = (int) Math.ceil(missing);
+            int remaining = consumeCenterRepairPoints(needed);
+            int paid = Math.max(0, needed - remaining);
+
+            centerEnergy += paid;
         }
 
-        int needed = (int) Math.ceil((-centerEnergy) + max);
-        int remaining = consumeCenterRepairPoints(needed);
+        centerEnergy = Math.max(0f, Math.min(max, centerEnergy));
 
-        if (remaining > 0) {
-            centerEnergy = 0f;
-            setChanged();
-            syncToClients();
-            return false;
-        }
-
-        centerEnergy = max;
         setChanged();
         syncToClients();
-        return true;
+        return centerEnergy > 0f;
     }
 
     private int consumeCenterRepairPoints(int neededPoints) {
