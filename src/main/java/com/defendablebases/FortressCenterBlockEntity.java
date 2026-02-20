@@ -289,8 +289,11 @@ public class FortressCenterBlockEntity extends BlockEntity {
         centerEnergy -= damage;
 
         // Only trigger resource-based repair when energy is depleted.
+        // A repair trigger always attempts to refill from 0 -> full.
         if (centerEnergy <= 0f) {
-            int needed = (int) Math.ceil(max - centerEnergy);
+            centerEnergy = 0f;
+
+            int needed = (int) Math.ceil(max);
             int remaining = consumeCenterRepairPoints(needed);
             int paid = Math.max(0, needed - remaining);
 
