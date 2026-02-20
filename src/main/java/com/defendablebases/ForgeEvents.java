@@ -292,6 +292,10 @@ public final class ForgeEvents {
 
         if (isFortressBlock(placedState.getBlock())) {
             FortressRegistry.addFortress(level.dimension(), placedPos);
+
+            if (placedState.getBlock() == ModBlocks.FORTRESS_CENTER.get()) {
+                TerritoryRules.pruneNewestCenterIfNetHasMultipleCenters(level, placedPos);
+            }
         }
 
         dirtyNetIfCovered(level, placedPos, 20);
@@ -334,6 +338,11 @@ public final class ForgeEvents {
         BlockPos protectorPos = TerritoryRules.findBestProtectingNodeForBreak(level, pos);
 
         if (protectorPos == null) {
+            boolean absorbedByCenter = fc.applyCenterProtectionDamage(1.0f);
+            if (!absorbedByCenter) {
+                return;
+            }
+
             event.setCanceled(true);
             if (event.getPlayer() instanceof ServerPlayer sp) {
                 sp.displayClientMessage(Component.literal("Protected."), true);
@@ -344,6 +353,11 @@ public final class ForgeEvents {
 
         BlockEntity be = level.getBlockEntity(protectorPos);
         if (!(be instanceof FortressBlockEntity node)) {
+            boolean absorbedByCenter = fc.applyCenterProtectionDamage(1.0f);
+            if (!absorbedByCenter) {
+                return;
+            }
+
             event.setCanceled(true);
             if (event.getPlayer() instanceof ServerPlayer sp) {
                 sp.displayClientMessage(Component.literal("Protected."), true);

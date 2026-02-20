@@ -1,0 +1,14 @@
+{
+  "block.defendablebases.fortress_center": "Fortress Center",
+  "block.defendablebases.fortress_wood": "Fortress Wood Node",
+  "block.defendablebases.fortress_iron": "Fortress Iron Node",
+  "block.defendablebases.fortress_diamond": "Fortress Diamond Node",
+
+  "tooltip.defendablebases.fortress_center.desc": "Core of a fortress network. Claims territory and manages linked nodes.",
+  "tooltip.defendablebases.fortress_center.radius": "Territory Radius: %s blocks",
+
+  "tooltip.defendablebases.fortress_node.desc": "Provides break protection and stores repair resources.",
+  "tooltip.defendablebases.fortress_node.slots": "Inventory Slots: %s",
+  "tooltip.defendablebases.fortress_node.energy": "Energy: %s",
+  "tooltip.defendablebases.fortress_node.radius": "Break Protection Radius: %s blocks"
+}
